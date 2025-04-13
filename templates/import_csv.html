@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}Import CSV - Portfolio Tracker{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">Import Transactions from CSV</h4>
+            </div>
+            <div class="card-body">
+                <p class="mb-4">Upload a CSV file containing your transactions. The file should have the following columns:</p>
+                
+                <div class="table-responsive mb-4">
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Column</th>
+                                <th>Description</th>
+                                <th>Example</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>date</td>
+                                <td>Transaction date (DD-MM-YYYY)</td>
+                                <td>6-2-2024</td>
+                            </tr>
+                            <tr>
+                                <td>type</td>
+                                <td>type of item</td>
+                                <td>stock or fund (also use this for etf)</td>
+                            </tr>
+                            <tr>
+                                <td>quantity</td>
+                                <td>Number of shares (use comma for decimal)</td>
+                                <td>0,826856</td>
+                            </tr>
+                            <tr>
+                                <td>ticker</td>
+                                <td>Identifier for getting stock info (look up yahoo finance for the exact ticker + exchange info) </td>
+                                <td>ADYEN.AS</td>
+                            </tr>
+                            <tr>
+                                <td>name</td>
+                                <td>Stock name</td>
+                                <td>Adyen</td>
+                            </tr>
+                            <tr>
+                                <td>currency</td>
+                                <td>currency</td>
+                                <td>$ or other currency</td>
+                            </tr>
+                            <tr>
+                                <td>amount</td>
+                                <td>Total value of purchased or sold stock (use comma for decimal)</td>
+                                <td>1000,10</td>
+                            </tr>
+                            <tr>
+                                <td>price</td>
+                                <td>Price per share</td>
+                                <td>1209,10</td>
+                            </tr>
+                            <tr>
+                                <td>action</td>
+                                <td>Transaction type (buy/sell)</td>
+                                <td>buy</td>
+                            </tr>
+                            <tr>
+                                <td>status</td>
+                                <td>The transaction closed or still open</td>
+                                <td>open or closed</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="mb-4">
+                    <a href="{{ url_for('download_template') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-download me-2"></i>Download Template
+                    </a>
+                </div>
+                
+                <form id="importForm" method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="file" class="form-label">Select CSV File</label>
+                        <input type="file" class="form-control" id="file" name="file" accept=".csv" required>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        The system will attempt to match column names and handle different date formats. Make sure your CSV file has a header row.
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" id="importButton" class="btn btn-primary">
+                            <span id="buttonText">Import Transactions</span>
+                            <div id="loadingSpinner" class="spinner-border spinner-border-sm text-light d-none" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('importForm').addEventListener('submit', function(e) {
+    // Prevent multiple submissions
+    const importButton = document.getElementById('importButton');
+    const buttonText = document.getElementById('buttonText');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    
+    // Disable the button to prevent multiple submissions
+    importButton.disabled = true;
+    
+    // Hide button text
+    buttonText.classList.add('d-none');
+    
+    // Show loading spinner
+    loadingSpinner.classList.remove('d-none');
+    
+    // Optional: Add a timeout to reset the form if something goes wrong
+    setTimeout(() => {
+        importButton.disabled = false;
+        buttonText.classList.remove('d-none');
+        loadingSpinner.classList.add('d-none');
+    }, 30000); // 30 seconds timeout
+});
+</script>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row align-items-center min-vh-75">
+    <div class="col-md-6">
+        <h1 class="display-4 fw-bold">Track Your Investments</h1>
+        <p class="lead">Keep track of your stock portfolio, monitor performance, and make informed decisions.</p>
+        <div class="d-grid gap-2 d-md-flex justify-content-md-start">
+            <a href="{{ url_for('register') }}" class="btn btn-primary btn-lg px-4 me-md-2">Get Started</a>
+            <a href="{{ url_for('login') }}" class="btn btn-outline-secondary btn-lg px-4">Login</a>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <img src="/api/placeholder/600/400" alt="Portfolio tracking" class="img-fluid rounded shadow">
+    </div>
+</div>
+
+<div class="row mt-5 pt-5">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-chart-line fa-3x text-primary mb-3"></i>
+                <h5 class="card-title">Track Performance</h5>
+                <p class="card-text">Monitor the performance of your investments in real-time with accurate market data.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-history fa-3x text-primary mb-3"></i>
+                <h5 class="card-title">Transaction History</h5>
+                <p class="card-text">Keep a complete record of all your buy and sell transactions for tax purposes.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-calculator fa-3x text-primary mb-3"></i>
+                <h5 class="card-title">Profit/Loss Analysis</h5>
+                <p class="card-text">See your unrealized and realized gains with detailed profit/loss analysis.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

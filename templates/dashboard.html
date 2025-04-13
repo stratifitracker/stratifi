@@ -1,0 +1,891 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Portfolio Tracker{% endblock %}
+
+{% block extra_head %}
+<style>
+    .portfolio-overview {
+        background-color: #f8f9fa;
+        border-radius: 0.5rem;
+    }
+    .profit {
+        color: #28a745;
+    }
+    .loss {
+        color: #dc3545;
+    }
+    .card-header[data-bs-toggle="collapse"] {
+        cursor: pointer;
+        user-select: none;
+    }
+    .collapse-icon {
+        transition: transform 0.3s ease;
+    }
+    .card-header[aria-expanded="true"] .collapse-icon {
+        transform: rotate(180deg);
+    }
+    .action-btn {
+        min-width: 140px;
+        min-height: 30px;
+    }
+    #avgCostTimeChart {
+        height: 300px !important;
+        max-height: 300px;
+    }
+    .card-body canvas {
+        width: 100% !important;
+    }
+    /* New styling for asset type badges */
+    .badge-stock {
+        background-color: #17a2b8;
+    }
+    .badge-fund {
+        background-color: #6f42c1;
+    }
+    .daily-change {
+        font-weight: bold;
+        margin-left: 5px;
+    }
+
+    .chart-card {
+    /* max-width: 320px;  REMOVE THIS */
+    width: 100%;
+    margin: auto;
+    }
+    /* Force uniform height for card bodies */
+    .chart-card .card-body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 300px;
+        padding: 1rem;
+    }
+
+    /* Make sure canvas doesn’t overflow and fits nicely */
+    .chart-card canvas {
+        max-width: 100%;
+        max-height: 220px;
+        object-fit: contain;
+    }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Portfolio Dashboard</h2>
+
+<div class="row mb-4">
+    <div class="col-lg-4 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title text-muted mb-3">Total Portfolio Value</h5>
+                <h2 class="mb-0">€{{ "%.2f"|format(total_value) }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title text-muted mb-3">Profit/Loss Summary</h5>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-2 text-muted">Unrealized P/L</div>
+                        <h4 class="{{ 'profit' if total_unrealized_pl >= 0 else 'loss' }}">
+                            {{ "+" if total_unrealized_pl >= 0 else "" }}€{{ "%.2f"|format(total_unrealized_pl) }}
+                        </h4>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-2 text-muted">Realized P/L</div>
+                        <h4 class="{{ 'profit' if total_realized_pl >= 0 else 'loss' }}">
+                            {{ "+" if total_realized_pl >= 0 else "" }}€{{ "%.2f"|format(total_realized_pl) }}
+                        </h4>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-2 text-muted">Total P/L</div>
+                        <h4 class="{{ 'profit' if total_pl >= 0 else 'loss' }}">
+                            {{ "+" if total_pl >= 0 else "" }}€{{ "%.2f"|format(total_pl) }}
+                        </h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div> 
+</div>
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card chart-card">
+            <div class="card-header">
+                <h5 class="mb-0">Sector Distribution</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="sectorChart" width="50" height="50"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card chart-card">
+            <div class="card-header">
+                <h5 class="mb-0">Asset Type Distribution</h5>
+            </div>
+            <div class="card-body text-center">
+                <canvas id="assetTypeChart" width="50" height="50"></canvas>
+                <div id="assetTypeTotal" class="mt-3 fw-semibold h6"></div>
+                <div id="assetTypeBreakdown" class="d-flex justify-content-center gap-4 small">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Profit Over Time Chart -->           
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Profit/Loss Over Time</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="profitTimeChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Average Cost Price Over Time -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Average Cost Price Over Time</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <select id="tickerSelector" class="form-select">
+                        <option value="">Select a stock...</option>
+                        {% for stock in portfolio %}
+                            {% if stock.shares > 0 %}
+                                <option value="{{ stock.ticker }}">{{ stock.ticker }}</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <canvas id="avgCostTimeChart" height="300" class="d-none"></canvas>
+                <div id="noDataMessage" class="text-center py-5">
+                    <p class="text-muted">Select a stock to view average cost history</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Open Positions -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Open Positions</h5>
+                <a href="{{ url_for('add_transaction') }}" class="btn btn-primary btn-sm">
+                    <i class="fas fa-plus me-1"></i>Add Transaction
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Ticker</th>
+                                <th>Type</th>
+                                <th>Sector</th>
+                                <th>Status</th>
+                                <th>Shares</th>
+                                <th>Avg. Cost</th>
+                                <th>Current Price</th>
+                                <th>Daily Change</th>
+                                <th>Value</th>
+                                <th>Unrealized G/L</th>
+                                <th>Unrealized %</th>
+                                <th>Realized G/L</th>
+                                <th>Realized %</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% set open_positions_exist = false %}
+                            {% for stock in portfolio %}
+                                {% if stock.shares > 0 %}
+                                {% set open_positions_exist = true %}
+                                <tr>
+                                    <td><strong>{{ stock.ticker }}</strong></td>
+                                    <td>
+                                        <span class="badge {{ 'badge-fund' if stock.asset_type == 'FUND' else 'badge-stock' }}">
+                                            {{ stock.asset_type }}
+                                        </span>
+                                    </td>
+                                    <td>{{ stock.sector }}</td>
+                                    <td><span class="badge bg-success">OPEN</span></td>
+                                    <td>{{ "%.2f"|format(stock.shares) }}</td>
+                                    <td>€{{ "%.2f"|format(stock.avg_cost) }}</td>
+                                    <td>€{{ "%.2f"|format(stock.current_price) }}</td>
+                                    <td>
+                                        {% if stock.daily_change_pct is not none %}
+                                        <span class="daily-change {{ 'profit' if stock.daily_change_pct >= 0 else 'loss' }}">
+                                            {{ "+" if stock.daily_change_pct >= 0 else "" }}{{ "%.2f"|format(stock.daily_change_pct) }}%
+                                        </span>
+                                        {% else %}
+                                        <span class="text-muted">N/A</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>€{{ "%.2f"|format(stock.value) }}</td>
+                                    <td class="{{ 'profit' if stock.unrealized_pl >= 0 else 'loss' }}">
+                                        {{ "+" if stock.unrealized_pl >= 0 else "" }}€{{ "%.2f"|format(stock.unrealized_pl) }}
+                                    </td>
+                                    <td class="{{ 'profit' if stock.unrealized_pl_pct >= 0 else 'loss' }}">
+                                        {{ "+" if stock.unrealized_pl_pct >= 0 else "" }}{{ "%.2f"|format(stock.unrealized_pl_pct) }}%
+                                    </td>
+                                    <td class="{{ 'profit' if stock.realized_pl >= 0 else 'loss' }}">
+                                        {{ "+" if stock.realized_pl >= 0 else "" }}€{{ "%.2f"|format(stock.realized_pl) }}
+                                    </td>
+                                    <td class="{{ 'profit' if stock.realized_pl_pct >= 0 else 'loss' }}">
+                                        {{ "+" if stock.realized_pl_pct >= 0 else "" }}{{ "%.2f"|format(stock.realized_pl_pct) }}%
+                                    </td>
+                                </tr>
+                                {% endif %}
+                            {% endfor %}
+                            <!-- {% if not open_positions_exist %}
+                            <tr>
+                                <td colspan="13" class="text-center">No open positions found. <a href="{{ url_for('add_transaction') }}">Add transactions</a> to get started.</td>
+                            </tr> -->
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Closed Positions -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Closed Positions</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Ticker</th>
+                                <th>Type</th>
+                                <th>Sector</th>
+                                <th>Status</th>
+                                <th>Total Bought</th>
+                                <th>Total Sold</th>
+                                <th>Avg. Cost</th>
+                                <th>Current Price</th>
+                                <th>Daily Change</th>
+                                <th>Unrealized G/L</th>
+                                <th>Unrealized %</th>
+                                <th>Realized G/L</th>
+                                <th>Realized %</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% set closed_positions_exist = false %}
+                            {% for stock in portfolio %}
+                                {% if stock.shares == 0 and stock.total_bought > 0 %}
+                                {% set closed_positions_exist = true %}
+                                <tr>
+                                    <td><strong>{{ stock.ticker }}</strong></td>
+                                    <td>
+                                        <span class="badge {{ 'badge-fund' if stock.asset_type == 'FUND' else 'badge-stock' }}">
+                                            {{ stock.asset_type }}
+                                        </span>
+                                    </td>
+                                    <td>{{ stock.sector }}</td>
+                                    <td><span class="badge bg-secondary">CLOSED</span></td>
+                                    <td>{{ "%.2f"|format(stock.total_bought) }}</td>
+                                    <td>{{ "%.2f"|format(stock.total_sold) }}</td>
+                                    <td>€{{ "%.2f"|format(stock.avg_cost) }}</td>
+                                    <td>€{{ "%.2f"|format(stock.current_price) }}</td>
+                                    <td>
+                                        {% if stock.daily_change_pct is not none %}
+                                        <span class="daily-change {{ 'profit' if stock.daily_change_pct >= 0 else 'loss' }}">
+                                            {{ "+" if stock.daily_change_pct >= 0 else "" }}{{ "%.2f"|format(stock.daily_change_pct) }}%
+                                        </span>
+                                        {% else %}
+                                        <span class="text-muted">N/A</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>€0.00</td>
+                                    <td>0.00%</td>
+                                    <td class="{{ 'profit' if stock.realized_pl >= 0 else 'loss' }}">
+                                        {{ "+" if stock.realized_pl >= 0 else "" }}€{{ "%.2f"|format(stock.realized_pl) }}
+                                    </td>
+                                    <td class="{{ 'profit' if stock.realized_pl_pct >= 0 else 'loss' }}">
+                                        {{ "+" if stock.realized_pl_pct >= 0 else "" }}{{ "%.2f"|format(stock.realized_pl_pct) }}%
+                                    </td>
+                                </tr>
+                                {% endif %}
+                            {% endfor %}
+                            <!-- {% if not closed_positions_exist %}
+                            <tr>
+                                <td colspan="13" class="text-center">No closed positions found.</td>
+                            </tr> -->
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="mb-0">Transaction History</h5>
+            <div class="d-flex">
+                <a href="{{ url_for('download_transactions') }}" class="btn btn-success btn-sm me-2 action-btn">
+                    <i class="fas fa-download me-1"></i>Download CSV
+                </a>
+                <form method="POST" action="{{ url_for('delete_all_transactions') }}" 
+                      class="me-2 w-100"
+                      onsubmit="return confirm('Are you absolutely sure you want to delete ALL transactions? This action cannot be undone.');">
+                    <button type="submit" class="btn btn-danger btn-sm action-btn">
+                        <i class="fas fa-trash-alt me-1"></i>Delete All
+                    </button>
+                </form>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#transactionHistoryContent" role="button" aria-expanded="true" aria-controls="transactionHistoryContent">
+                <h5 class="mb-0">Details</h5>
+                <i class="fas fa-chevron-down collapse-icon"></i>
+            </div>
+            <div class="collapse show" id="transactionHistoryContent">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Type</th>
+                                    <th>Asset Type</th>
+                                    <th>Ticker</th>
+                                    <th>Shares</th>
+                                    <th>Price</th>
+                                    <th>Total</th>
+                                    <th>Delete</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for transaction in transactions %}
+                                <tr>
+                                    <td>{{ transaction.date.strftime('%Y-%m-%d') }}</td>
+                                    <td>
+                                        <span class="badge {{ 'bg-success' if transaction.transaction_type == 'buy' else 'bg-danger' }}">
+                                            {{ transaction.transaction_type.upper() }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge {{ 'badge-fund' if transaction.asset_type == 'FUND' else 'badge-stock' }}">
+                                            {{ transaction.asset_type }}
+                                        </span>
+                                    </td>
+                                    <td>{{ transaction.ticker }}</td>
+                                    <td>{{ "%.2f"|format(transaction.quantity) }}</td>
+                                    <td>€{{ "%.2f"|format(transaction.price) }}</td>
+                                    <td>€{{ "%.2f"|format(transaction.quantity * transaction.price) }}</td>
+                                    <td>
+                                        <form method="POST" action="{{ url_for('delete_transaction', transaction_id=transaction.id) }}" 
+                                              onsubmit="return confirm('Are you sure you want to delete this transaction?');">
+                                            <button type="submit" class="btn btn-danger btn-sm">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="8" class="text-center">No transactions found.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- New Compound Growth Calculator Section -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Compound Growth Calculator</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mx-auto">
+                        <form id="compoundGrowthForm">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Initial Investment</label>
+                                    <input 
+                                        type="number" 
+                                        id="initialInvestment" 
+                                        class="form-control" 
+                                        placeholder="Enter initial amount" 
+                                        required
+                                    >
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Monthly Contribution</label>
+                                    <input 
+                                        type="number" 
+                                        id="monthlyContribution" 
+                                        class="form-control" 
+                                        placeholder="e.g. 200" 
+                                        step="0.01"
+                                        value="0"
+                                    >
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Annual Growth Rate (%)</label>
+                                    <input 
+                                        type="number" 
+                                        id="growthRate" 
+                                        class="form-control" 
+                                        placeholder="Enter growth rate" 
+                                        step="0.01"
+                                        required
+                                    >
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Investment Duration (Years)</label>
+                                    <input 
+                                        type="number" 
+                                        id="years" 
+                                        class="form-control" 
+                                        placeholder="Enter years" 
+                                        required
+                                    >
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Compounding Frequency</label>
+                                    <select 
+                                        id="compoundingFrequency"
+                                        class="form-select"
+                                    >
+                                        <option value="1">Annually</option>
+                                        <option value="2">Semi-Annually</option>
+                                        <option value="4">Quarterly</option>
+                                        <option value="12" selected>Monthly</option>
+                                        <option value="365">Daily</option>
+                                    </select>
+                                </div>
+                                <div class="col-12">
+                                    <button 
+                                        type="submit" 
+                                        class="btn btn-primary w-100"
+                                    >
+                                        Calculate
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                        
+                        <div id="compoundGrowthResults" class="mt-3 text-center">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <h6 class="text-muted">Final Amount</h6>
+                                    <p id="finalAmountResult" class="h5">-</p>
+                                </div>
+                                <div class="col-md-4">
+                                    <h6 class="text-muted">Total Growth</h6>
+                                    <p id="totalGrowthResult" class="h5">-</p>
+                                </div>
+                                <div class="col-md-4">
+                                    <h6 class="text-muted">Growth Percentage</h6>
+                                    <p id="growthPercentageResult" class="h5">-</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+
+    document.getElementById('compoundGrowthForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const initialInvestment = parseFloat(document.getElementById('initialInvestment').value);
+        const growthRate = parseFloat(document.getElementById('growthRate').value);
+        const years = parseInt(document.getElementById('years').value);
+        const compoundingFrequency = parseInt(document.getElementById('compoundingFrequency').value);
+        const monthlyContribution = parseFloat(document.getElementById('monthlyContribution').value || 0);
+
+        const n = compoundingFrequency;
+        const r = growthRate / 100;
+        const t = years;
+
+        // Future value of initial investment
+        const futureValueInitial = initialInvestment * Math.pow(1 + r / n, n * t);
+
+        // Future value of series of monthly contributions
+        const totalMonths = t * 12;
+        const monthlyRate = r / 12;
+        const futureValueContributions = monthlyContribution * ((Math.pow(1 + monthlyRate, totalMonths) - 1) / monthlyRate);
+
+        const finalAmount = futureValueInitial + futureValueContributions;
+        const totalInvested = initialInvestment + (monthlyContribution * totalMonths);
+        const totalGrowth = finalAmount - totalInvested;
+        const growthPercentage = (totalGrowth / totalInvested) * 100;
+
+        document.getElementById('finalAmountResult').textContent = '€' + finalAmount.toFixed(2);
+        document.getElementById('totalGrowthResult').textContent = '€' + totalGrowth.toFixed(2);
+        document.getElementById('growthPercentageResult').textContent = growthPercentage.toFixed(2) + '%';
+    });
+
+        const transactionHeader = document.querySelector('[data-bs-toggle="collapse"]');
+        const collapseIcon = transactionHeader.querySelector('.collapse-icon');
+        
+        transactionHeader.addEventListener('click', function() {
+            const isExpanded = this.getAttribute('aria-expanded') === 'true';
+            collapseIcon.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(180deg)';
+        });
+
+
+        // ========== Profit/Loss Over Time ==========
+        const profitTimeData = JSON.parse('{{ profit_time_series | tojson | safe }}');
+
+        if (Array.isArray(profitTimeData) && profitTimeData.length > 0) {
+            const ctxProfit = document.getElementById('profitTimeChart')?.getContext('2d');
+            if (ctxProfit) {
+                new Chart(ctxProfit, {
+                    type: 'line',
+                    data: {
+                        labels: profitTimeData.map(item => item.date),
+                        datasets: [
+                            {
+                                label: 'Total P/L',
+                                data: profitTimeData.map(item => item.total_pl),
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                borderWidth: 2,
+                                tension: 0.1,
+                                fill: true
+                            },
+                            {
+                                label: 'Realized P/L',
+                                data: profitTimeData.map(item => item.realized_pl),
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                                borderWidth: 2,
+                                tension: 0.1,
+                                fill: true
+                            },
+                            {
+                                label: 'Unrealized P/L',
+                                data: profitTimeData.map(item => item.unrealized_pl),
+                                borderColor: 'rgba(255, 159, 64, 1)',
+                                backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                                borderWidth: 2,
+                                tension: 0.1,
+                                fill: true
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function (context) {
+                                        return `${context.dataset.label}: €${context.raw.toFixed(2)}`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Date'
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Profit/Loss (€)'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        const sectorData = JSON.parse('{{ sector_data | tojson | safe }}');
+        const assetTypeData = JSON.parse('{{ portfolio_by_type | tojson | safe }}');
+
+        // ========== Sector Distribution Chart ==========
+        if (sectorData.length > 0) {
+            const ctxSector = document.getElementById('sectorChart')?.getContext('2d');
+            if (ctxSector) {
+                new Chart(ctxSector, {
+                    type: 'pie',
+                    data: {
+                        labels: sectorData.map(s => s.sector),
+                        datasets: [{
+                            data: sectorData.map(s => s.value),
+                            backgroundColor: [
+                                '#4bc0c0',
+                                '#ff6384',
+                                '#36a2eb',
+                                '#ffce56',
+                                '#9966ff',
+                                '#ff9f40',
+                                '#c9cbcf'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'right'
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // ========== Asset Type Distribution Chart ==========
+        const assetLabels = Object.keys(assetTypeData);
+        const assetValues = Object.values(assetTypeData);
+        const assetColors = ['#17a2b8', '#6f42c1']; // STOCK, FUND
+
+        if (assetValues.some(v => v > 0)) {
+            const ctxAsset = document.getElementById('assetTypeChart')?.getContext('2d');
+            if (ctxAsset) {
+                new Chart(ctxAsset, {
+                    type: 'doughnut',
+                    data: {
+                        labels: assetLabels,
+                        datasets: [{
+                            data: assetValues,
+                            backgroundColor: assetColors
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'right'
+                            }
+                        }
+                    }
+                });
+            }
+
+            // 💶 Total Portfolio Value
+            const totalAssetValue = assetValues.reduce((a, b) => a + b, 0);
+            const totalDisplay = document.getElementById('assetTypeTotal');
+            if (totalDisplay) {
+                totalDisplay.textContent = `Total Value: €${totalAssetValue.toFixed(2)}`;
+            }
+
+            // 🎨 Color-Coded Breakdown
+            const breakdownContainer = document.getElementById('assetTypeBreakdown');
+            if (breakdownContainer) {
+                breakdownContainer.innerHTML = assetLabels.map((label, i) => {
+                    const percentage = ((assetValues[i] / totalAssetValue) * 100).toFixed(1);
+                    return `<span style="color: ${assetColors[i]};"><strong>${label}</strong>: ${percentage}%</span>`;
+                }).join('');
+            }
+        }
+        // Portfolio allocation chart
+        const portfolioData = [
+            {% for stock in portfolio %}
+                {% if stock.shares > 0 %}
+                {
+                    ticker: '{{ stock.ticker }}',
+                    value: {{ stock.value }}
+                },
+                {% endif %}
+            {% endfor %}
+        ];
+        
+        if (portfolioData.length > 0) {
+            const ctx = document.getElementById('portfolioChart').getContext('2d');
+            
+            const colors = [
+                'rgba(54, 162, 235, 0.8)',
+                'rgba(255, 99, 132, 0.8)',
+                'rgba(75, 192, 192, 0.8)',
+                'rgba(255, 159, 64, 0.8)',
+                'rgba(153, 102, 255, 0.8)',
+                'rgba(255, 205, 86, 0.8)',
+                'rgba(201, 203, 207, 0.8)'
+            ];
+            
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: portfolioData.map(item => item.ticker),
+                    datasets: [{
+                        data: portfolioData.map(item => item.value),
+                        backgroundColor: portfolioData.map((_, index) => colors[index % colors.length]),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                        }
+                    }
+                }
+            });
+        }
+    });  
+
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        let avgCostChart = null;
+        const avgCostData = {{ avg_cost_time_series|tojson }};
+        const chartCanvas = document.getElementById('avgCostTimeChart');
+        const ctx = chartCanvas.getContext('2d');
+        const selector = document.getElementById('tickerSelector');
+        const noDataMessage = document.getElementById('noDataMessage');
+
+        function renderAvgCostChart(ticker) {
+            if (avgCostChart) {
+                avgCostChart.destroy();
+            }
+
+            const data = avgCostData[ticker];
+
+            if (!data || data.length === 0) {
+                chartCanvas.classList.add('d-none');
+                noDataMessage.classList.remove('d-none');
+                return;
+            }
+
+            chartCanvas.classList.remove('d-none');
+            noDataMessage.classList.add('d-none');
+
+            avgCostChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(item => item.date),
+                    datasets: [
+                        {
+                            label: 'Avg. Cost (€)',
+                            data: data.map(item => item.avg_cost),
+                            borderColor: 'rgba(153, 102, 255, 1)',
+                            backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.1,
+                            yAxisID: 'y1'
+                        },
+                        {
+                            label: '% Change',
+                            data: data.map(item => item.pct_change),
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.1,
+                            yAxisID: 'y2'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    stacked: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    const point = avgCostData[ticker][context.dataIndex];
+                                    if (context.dataset.label === '% Change') {
+                                        return `${context.dataset.label}: ${point.pct_change.toFixed(2)}%`;
+                                    } else {
+                                        return `${context.dataset.label}: €${point.avg_cost.toFixed(2)}`;
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Date'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Avg. Cost (€)'
+                            }
+                        },
+                        y2: {
+                            type: 'linear',
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: '% Change'
+                            },
+                            grid: {
+                                drawOnChartArea: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        selector.addEventListener('change', function () {
+            const selectedTicker = this.value;
+            if (selectedTicker) {
+                renderAvgCostChart(selectedTicker);
+            } else {
+                if (avgCostChart) avgCostChart.destroy();
+                chartCanvas.classList.add('d-none');
+                noDataMessage.classList.remove('d-none');
+            }
+        });
+    });
+</script>
+
+
+{% endblock %}

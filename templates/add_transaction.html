@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Add Transaction - Portfolio Tracker{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">Add Transaction</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="ticker" class="form-label">Ticker Symbol</label>
+                            <input type="text" class="form-control" id="ticker" name="ticker" required placeholder="ADYEN.AS">
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="name" class="form-label">Ticker Symbol</label>
+                                <input type="text" class="form-control" id="name" name="name" required placeholder="ADYEN">
+                            </div>
+                        <div class="col-md-6">
+                            <label for="transaction_type" class="form-label">Transaction Type</label>
+                            <select class="form-select" id="transaction_type" name="transaction_type" required>
+                                <option value="buy">Buy</option>
+                                <option value="sell">Sell</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="quantity" class="form-label">Quantity</label>
+                            <input type="number" class="form-control" id="quantity" name="quantity" step="0.0001" min="0.0001" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="price" class="form-label">Price per Share (€)</label>
+                            <input type="number" class="form-control" id="price" name="price" step="0.01" min="0.01" required>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="date" class="form-label">Transaction Date</label>
+                        <input type="date" class="form-control" id="date" name="date" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-text text-muted mb-3">
+                            <strong>Total: €<span id="total">0.00</span></strong>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">Add Transaction</button> 
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const quantityInput = document.getElementById('quantity');
+        const priceInput = document.getElementById('price');
+        const totalSpan = document.getElementById('total');
+        const dateInput = document.getElementById('date');
+        
+        // Set default date to today
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        let mm = today.getMonth() + 1;
+        let dd = today.getDate();
+        
+        if (dd < 10) dd = '0' + dd;
+        if (mm < 10) mm = '0' + mm;
+        
+        dateInput.value = `€{yyyy}-€{mm}-€{dd}`;
+        
+        // Calculate total when inputs change
+        function calculateTotal() {
+            const quantity = parseFloat(quantityInput.value) || 0;
+            const price = parseFloat(priceInput.value) || 0;
+            const total = (quantity * price).toFixed(2);
+            totalSpan.textContent = total;
+        }
+        
+        quantityInput.addEventListener('input', calculateTotal);
+        priceInput.addEventListener('input', calculateTotal);
+    });
+</script>
+{% endblock %}
