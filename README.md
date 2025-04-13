@@ -1,6 +1,6 @@
 # flask_finance_tracker
 
-[www.st](https://www.stratifi.eu/)
+(https://www.stratifi.eu/)
 
 Hey allemaal! 👋
 
