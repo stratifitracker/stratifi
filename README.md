@@ -1,36 +1,11 @@
-# flask_finance_tracker
-
-https://www.stratifi.eu/
-
-Hey allemaal! 👋
-
-Ik ben bezig met het bouwen van een nieuwe finance web app: een persoonlijke portfolio tracker die het eindelijk makkelijk maakt om al je investeringen op één plek te volgen – ook als ze verspreid staan over verschillende platformen.
-
-💼 Denk aan:
-
-    NT-fondsen via ING
-
-    Losse aandelen bij andere brokers
-
-    Gesloten posities bij DEGIRO
-
-    Lopende trades bij weer een andere partij
-    Alles netjes in één overzichtelijk dashboard.
-
-Waarom ik deze app ben gaan bouwen:
-
-    Tools zoals PDT of AllInvestView zijn vaak duur of missen bepaalde koppelingen
-
-    NT-fondsen zijn vaak niet toe te voegen
-
-    Ik miste zelf een eenvoudige en flexibele oplossing om mijn totale overzicht compleet te krijgen
-
-De app zit nu in de testfase, en ik zoek enthousiaste testers die:
-
-✅ willen meedenken over welke features jij mist in bestaande tools
-✅ feedback willen geven op wat er al werkt
-✅ graag gratis early access willen tot een tool die we samen beter maken 💡
-
-Of je nu net begint met beleggen of al jaren bezig bent: je input is super waardevol!
-
-👉 Lijkt het je wat? Laat een reactie achter of stuur me even een DM!
+Hey everyone!
+I'm working on building a new finance web app: a personal portfolio tracker that finally makes it easy to track all your investments in one place – even if they're spread across different platforms.
+Why I decided to build this app:
+Tools like PDT or AllInvestView or portfolio-info are either expensive, complex, demand hard data formatting, or dont have fund data for NT funds i.e. 
+My goal was to build a  FREE friction-less portfolio tracker where you can add all stocks and funds that are available. You can host your own server / local instance ( https://github.com/stratifitracker/stratifi ) or feel free to use the hosted website: https://www.stratifi.eu/ 
+The app is currently in the V1 phase, and I’m looking for enthusiastic users who:
+✅ want to share their thoughts on which features they miss in current tools
+✅ are open to giving feedback on what's already working
+✅ would love free early access to a tool we’re improving together 💡
+Whether you're just getting started with investing or have been doing it for years – your input is super valuable!
+👉 Sounds interesting? Drop a comment or send me a DM!
